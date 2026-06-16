@@ -7,6 +7,7 @@ map("n", "<leader>gH", "<cmd>DiffviewFileHistory<cr>", { desc = "git history of 
 map("n", "<leader>gf", "<cmd>DiffviewFileHistory %<cr>", { desc = "git history of file" })
 
 map("n", "<leader>fs", "<cmd>AutoSession search<cr>", { desc = "find a session" })
+map("n", "<leader>fA", function() require("config.agent_session").find() end, { desc = "find AI agent session" })
 
 -- 左侧neo-tree目录下按backspace键可退至上一层目录
 -- 当前打开的buffer跟目的文件做diff: vertical diffsplit init.lua

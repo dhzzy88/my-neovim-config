@@ -520,7 +520,32 @@ function M.list_terminals()
   })
 end
 
--- 操作 5: 在编辑窗口内向终端发送 @引用
+-- 操作 5: 新建终端并在其中执行命令 (供外部调用, 如 agent session resume)
+function M.run_in_new_terminal(cmd, count)
+  if not cmd or cmd == "" then return end
+  M.new_terminal(count or 1)
+  local kind = M.is_terminal_visible()
+  if kind == "tmux" then
+    local right = get_right_pane_id()
+    if not right then return end
+    -- 给 shell 一点初始化时间, 否则首字符可能丢失
+    vim.defer_fn(function()
+      vim.fn.system({ "tmux", "send-keys", "-t", right, cmd, "Enter" })
+    end, 80)
+  elseif kind == "snacks" then
+    local terms = snacks_visible_terms()
+    local last = terms[#terms]
+    if not last then return end
+    vim.defer_fn(function()
+      local ok, chan = pcall(vim.api.nvim_buf_get_var, last.buf, "terminal_job_id")
+      if ok and chan then
+        vim.api.nvim_chan_send(chan, cmd .. "\n")
+      end
+    end, 100)
+  end
+end
+
+-- 操作 6: 在编辑窗口内向终端发送 @引用
 function M.send_reference()
   local mode = vim.fn.mode()
   local rel_path = vim.fn.expand("%:.")
