@@ -5,9 +5,15 @@ require("gitsigns").setup({
 
 local function git_floating(cmd)
   return function()
-    Snacks.terminal(cmd, {
-      win = { position = "float", width = 0.9, height = 0.85 },
-    })
+    local opts = { win = { position = "float", width = 0.9, height = 0.85 } }
+    local ok, lib = pcall(require, "diffview.lib")
+    if ok then
+      local view = lib.get_current_view()
+      if view and view.adapter and view.adapter.ctx and view.adapter.ctx.toplevel then
+        opts.cwd = view.adapter.ctx.toplevel
+      end
+    end
+    Snacks.terminal(cmd, opts)
   end
 end
 
