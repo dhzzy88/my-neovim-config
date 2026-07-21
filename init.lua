@@ -122,3 +122,8 @@ vim.api.nvim_create_autocmd("ModeChanged", {
 -- vim.g.snacks_animate = false -- 默认使能snack动画, 但是搜索时不及时显示匹配序号
 vim.cmd("colorscheme vscode")
 vim.cmd("hi link bookmarks_virt_text_hl BufferLineGroupLabel") -- 设置书签的显示格式
+
+vim.opt.cursorline = true -- 光标所在行高亮
+vim.opt.cursorcolumn = true -- 光标所在列高亮
+vim.api.nvim_set_hl(0, "CursorLine", { bg = "#2f2f2f" }) -- vscode主题的背景色是#202020
+vim.api.nvim_set_hl(0, "CursorColumn", { bg = "#222222" }) -- vscode主题的背景色是#202020
