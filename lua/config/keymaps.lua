@@ -33,8 +33,23 @@ map('n', '<leader>ds', '<cmd>lua delete_lines_with_clipboard_content()<CR>', { n
 
 
 
-map("n", "<leader>ft", "<cmd>FzfLua tags_live_grep<cr>", { desc = "live grep of all ctags" })
+map("n", "<leader>ft", function()
+  -- fn_transform=false 禁用 fzf-lua 默认的 24 字符 padding (会让所有 tag 名长度相同)
+  -- --nth=1 / --delimiter=[\t]: 只匹配第一字段(tag 名), 不参与文件路径/ex_cmd 评分
+  -- --tiebreak=chunk: 比较被匹配的 chunk(field 1) 长度, 而非整行长度 (length tiebreak 是整行, 会被 ex_cmd 长度干扰)
+  require("fzf-lua").tags({
+    fn_transform = false,
+    fzf_opts = { ["--nth"] = "1", ["--tiebreak"] = "chunk,begin" },
+  })
+end, { desc = "search all ctags" })
 map("n", "<leader>fd", "<cmd>FzfLua tags_grep_cword<cr>", { desc = "grep definitions from ctags of current word" })
+map("n", "<leader>fT", function()
+  require("fzf-lua").tags({
+    query = vim.fn.expand("<cword>"),
+    fn_transform = false,
+    fzf_opts = { ["--nth"] = "1", ["--tiebreak"] = "chunk,begin" },
+  })
+end, { desc = "search all ctags (prefilled with cword)" })
 
 
 map("n", "<leader>gd", "<cmd>Lspsaga peek_definition<cr>", { desc = "lspsaga: go to peek_definition" })
