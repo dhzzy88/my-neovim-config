@@ -405,6 +405,115 @@ function M.toggle_terminal()
   end
 end
 
+-- 将 tmux pane 的 ANSI 输出解析成纯文本 + extmark 高亮, 写入指定 buffer
+-- 使用 SGR 状态机: 遇到 `\27[...m` 更新颜色/样式; 其他字符累加到当前段, 段落结束时用 extmark 上色
+local ANSI_NS = vim.api.nvim_create_namespace("terminal_picker_ansi")
+local hl_cache, hl_seq = {}, 0
+
+local function xterm256(n)
+  if n < 16 then
+    local basic = { "#000000","#800000","#008000","#808000","#000080","#800080",
+                    "#008080","#c0c0c0","#808080","#ff0000","#00ff00","#ffff00",
+                    "#0000ff","#ff00ff","#00ffff","#ffffff" }
+    return basic[n + 1]
+  elseif n < 232 then
+    local m = { [0]=0,[1]=95,[2]=135,[3]=175,[4]=215,[5]=255 }
+    local i = n - 16
+    return string.format("#%02x%02x%02x", m[math.floor(i/36)], m[math.floor(i%36/6)], m[i%6])
+  else
+    local v = 8 + (n - 232) * 10
+    return string.format("#%02x%02x%02x", v, v, v)
+  end
+end
+
+local function ensure_hl(attrs)
+  local key = table.concat({ attrs.fg or "", attrs.bg or "",
+    attrs.bold and "b" or "", attrs.italic and "i" or "",
+    attrs.underline and "u" or "", attrs.reverse and "r" or "" }, "|")
+  if hl_cache[key] then return hl_cache[key] end
+  hl_seq = hl_seq + 1
+  local name = "TermPickAnsi" .. hl_seq
+  vim.api.nvim_set_hl(0, name, attrs)
+  hl_cache[key] = name
+  return name
+end
+
+local function render_pane_preview(buf, pane_id)
+  local raw = vim.fn.systemlist({ "tmux", "capture-pane", "-t", pane_id, "-p", "-e", "-J" })
+  while #raw > 0 and raw[#raw]:match("^%s*$") do table.remove(raw) end
+
+  local plain, marks = {}, {}
+  for lnum, line in ipairs(raw) do
+    local st = {}   -- current SGR state: fg/bg/bold/italic/underline/reverse
+    local out, col, seg_start, cur_hl, i = {}, 0, 0, nil, 1
+    while i <= #line do
+      local a, b, params = line:find("\27%[([%d;]*)m", i)
+      if a == i then
+        if cur_hl and col > seg_start then
+          marks[#marks + 1] = { lnum - 1, seg_start, col, cur_hl }
+        end
+        local nums = {}
+        for x in (params .. ";"):gmatch("(%d*);") do nums[#nums + 1] = tonumber(x) or 0 end
+        local k = 1
+        while k <= #nums do
+          local c = nums[k]
+          if c == 0 then st = {}
+          elseif c == 1 then st.bold = true
+          elseif c == 3 then st.italic = true
+          elseif c == 4 then st.underline = true
+          elseif c == 7 then st.reverse = true
+          elseif c == 22 then st.bold = nil
+          elseif c == 23 then st.italic = nil
+          elseif c == 24 then st.underline = nil
+          elseif c == 27 then st.reverse = nil
+          elseif c == 39 then st.fg = nil
+          elseif c == 49 then st.bg = nil
+          elseif c >= 30 and c <= 37 then st.fg = xterm256(c - 30)
+          elseif c >= 40 and c <= 47 then st.bg = xterm256(c - 40)
+          elseif c >= 90 and c <= 97 then st.fg = xterm256(c - 82)
+          elseif c >= 100 and c <= 107 then st.bg = xterm256(c - 92)
+          elseif c == 38 or c == 48 then
+            local color
+            if nums[k + 1] == 5 then
+              color = xterm256(nums[k + 2] or 0); k = k + 2
+            elseif nums[k + 1] == 2 then
+              color = string.format("#%02x%02x%02x", nums[k + 2] or 0, nums[k + 3] or 0, nums[k + 4] or 0)
+              k = k + 4
+            end
+            if color then
+              if c == 38 then st.fg = color else st.bg = color end
+            end
+          end
+          k = k + 1
+        end
+        if next(st) then
+          cur_hl = ensure_hl(st); seg_start = col
+        else
+          cur_hl = nil
+        end
+        i = b + 1
+      else
+        local nx = line:find("\27", i + 1) or (#line + 1)
+        local seg = line:sub(i, nx - 1)
+        out[#out + 1] = seg; col = col + #seg; i = nx
+      end
+    end
+    if cur_hl and col > seg_start then
+      marks[#marks + 1] = { lnum - 1, seg_start, col, cur_hl }
+    end
+    plain[#plain + 1] = table.concat(out)
+  end
+
+  vim.bo[buf].modifiable = true
+  vim.api.nvim_buf_set_lines(buf, 0, -1, false, plain)
+  vim.bo[buf].modifiable = false
+  for _, m in ipairs(marks) do
+    pcall(vim.api.nvim_buf_set_extmark, buf, ANSI_NS, m[1], m[2], {
+      end_row = m[1], end_col = m[3], hl_group = m[4],
+    })
+  end
+end
+
 -- 操作 4: 列出所有终端 (合并 picker)
 function M.list_terminals()
   local function build_term_entry(term)
@@ -471,19 +580,47 @@ function M.list_terminals()
   Snacks.picker.pick({
     source = "terminals_unified",
     title = "Terminals (mode=" .. M.mode .. ") | <ctrl-x> 关闭",
+    layout = {
+      layout = {
+        backdrop = false,
+        width = 0.8,
+        min_width = 80,
+        height = 0.95,
+        min_height = 30,
+        box = "vertical",
+        border = true,
+        title = "{title} {live} {flags}",
+        title_pos = "center",
+        { win = "input", height = 1, border = "bottom" },
+        { win = "list", border = "none" },
+        { win = "preview", title = "{preview}", height = 0.85, border = "top" },
+      },
+    },
     finder = build_entries,
     format = function(item) return { { item.text, "Normal" } } end,
     preview = function(ctx)
       ctx.preview:reset()
       local item = ctx.item
       if not item then return end
+      local target_buf
       if item.kind == "pane" then
         ctx.preview:set_title("pane " .. item.pane.id)
-        Snacks.picker.preview.cmd({ "tmux", "capture-pane", "-t", item.pane.id, "-p", "-e" }, ctx)
+        target_buf = ctx.preview:scratch()
+        render_pane_preview(target_buf, item.pane.id)
       elseif item.kind == "term" then
         ctx.preview:set_title("term #" .. item.info.id)
         if vim.api.nvim_buf_is_valid(item.buf) then
           ctx.preview:set_buf(item.buf)
+          target_buf = item.buf
+        end
+      end
+      ctx.preview:wo({ wrap = false })
+      local pwin = ctx.preview.win and ctx.preview.win.win
+      if pwin and vim.api.nvim_win_is_valid(pwin) and target_buf and vim.api.nvim_buf_is_valid(target_buf) then
+        if vim.api.nvim_win_get_buf(pwin) == target_buf then
+          local last = vim.api.nvim_buf_line_count(target_buf)
+          pcall(vim.api.nvim_win_set_cursor, pwin, { last, 0 })
+          vim.api.nvim_win_call(pwin, function() vim.cmd("normal! zb") end)
         end
       end
     end,
