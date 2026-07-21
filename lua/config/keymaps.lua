@@ -99,14 +99,20 @@ end, {})
 map("n", "<leader>ga", "<cmd>OpenCommitInfoOfCurrLine<cr>", { desc = "diffview of commit of current line" })
 map("n", "<leader>gr", "<cmd>Gitsigns reset_buffer<cr>", { desc = "restore current buffer" })
 map("n", "<leader>go", "<cmd>DiffviewOpen<cr>", { desc = "git view open by DiffviewOpen" })
+map("n", "<leader>gs", function()
+  vim.ui.input({ prompt = "git show commit: " }, function(commit)
+    if not commit or commit == "" then return end
+    vim.cmd("DiffviewOpen " .. vim.trim(commit) .. "^!")
+  end)
+end, { desc = "git show of given commit (DiffviewOpen <commit>^!)" })
 
--- 在浮动终端中执行 git commit, 避免 :! 嵌套 nvim 卡死
--- GIT_EDITOR=nvim 显式指定编辑器, 否则会 fallback 到 vi 而 vi 在 snacks 浮动终端内启动会失败
-map("n", "<leader>gc", function()
-  Snacks.terminal("GIT_EDITOR=nvim git commit -v", {
-    win = { position = "float", width = 0.9, height = 0.85 },
-  })
-end, { desc = "git commit (in floating terminal)" })
+-- -- 在浮动终端中执行 git commit, 避免 :! 嵌套 nvim 卡死
+-- -- GIT_EDITOR=nvim 显式指定编辑器, 否则会 fallback 到 vi 而 vi 在 snacks 浮动终端内启动会失败
+-- map("n", "<leader>gc", function()
+--   Snacks.terminal("GIT_EDITOR=nvim git commit -v", {
+--     win = { position = "float", width = 0.9, height = 0.85 },
+--   })
+-- end, { desc = "git commit (in floating terminal)" })
 
 -- 覆盖snacks插件默认的gB: 打开当前行 blame commit 对应的 GitHub 页面; 如果是公司内部git, 需要在plugins/git.lua中配置
 map("n", "<leader>gB", function()
