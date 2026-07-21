@@ -1,7 +1,7 @@
 return {
   {
-    "yintao1995/codetour.nvim",
-    -- dir = vim.fn.expand("~/projects/codetour.nvim"),
+    -- "yintao1995/codetour.nvim",
+    dir = vim.fn.expand("~/projects/codetour.nvim"),
     -- name = "codetour.nvim",
 
     cmd = {
@@ -20,6 +20,15 @@ return {
           local depth = vim.v.count > 0 and vim.v.count or 1
           vim.cmd("CodeTourAddStep " .. depth)
         end, desc = "CodeTour: add step (count=depth 1-based, e.g. 2<leader>ta)" },
+      { "<leader>ta", function()
+          local depth = vim.v.count > 0 and vim.v.count or 1
+          -- 退出 visual 让 '< '> 标记更新到本次选区
+          local esc = vim.api.nvim_replace_termcodes("<Esc>", true, false, true)
+          vim.api.nvim_feedkeys(esc, "x", false)
+          local s = vim.fn.line("'<")
+          local e = vim.fn.line("'>")
+          vim.cmd(string.format("%d,%dCodeTourAddStep %d", s, e, depth))
+        end, mode = "x", desc = "CodeTour: add range step (count=depth)" },
       { "<leader>td", "<cmd>CodeTourOpenDir<cr>", desc = "CodeTour: open tours dir" },
       { "<leader>tR", "<cmd>CodeTourResume<cr>", desc = "CodeTour: resume tour for recording" },
     },
