@@ -41,17 +41,17 @@ local function run_next()
     end
     running = running + 1
     local ok = pcall(vim.system,
-      { "git", "-C", job.root, "log", "-1", "--format=%cr%x09%an%x09%s", "--", job.path },
+      { "git", "-C", job.root, "log", "-1", "--format=%H%x09%cr%x09%an%x09%s", "--", job.path },
       { text = true },
       vim.schedule_wrap(function(obj)
         pcall(function()
           pending[job.path] = nil
           if not obj or obj.code ~= 0 or not obj.stdout or obj.stdout == "" then
-            cache[job.path] = { time = "", author = "", msg = "" }
+            cache[job.path] = { hash = "", time = "", author = "", msg = "" }
           else
             local line = obj.stdout:gsub("\n$", "")
-            local time, author, msg = line:match("^([^\t]*)\t([^\t]*)\t(.*)$")
-            cache[job.path] = { time = time or "", author = author or "", msg = msg or "" }
+            local hash, time, author, msg = line:match("^([^\t]*)\t([^\t]*)\t([^\t]*)\t(.*)$")
+            cache[job.path] = { hash = hash or "", time = time or "", author = author or "", msg = msg or "" }
           end
         end)
         running = running - 1
@@ -62,7 +62,7 @@ local function run_next()
     if not ok then
       pending[job.path] = nil
       running = running - 1
-      cache[job.path] = { time = "", author = "", msg = "" }
+      cache[job.path] = { hash = "", time = "", author = "", msg = "" }
     end
   end
 end
@@ -203,6 +203,33 @@ local function build_file_renderer()
   }
 end
 
+local function show_commit_details(state)
+  local node = state and state.tree and state.tree:get_node()
+  if not node or type(node.path) ~= "string" or node.path == "" then
+    vim.notify("无法获取当前节点", vim.log.levels.WARN)
+    return
+  end
+  local path = node.path
+  local root = get_git_root(path)
+  if not root then
+    vim.notify("不在 git 仓库中", vim.log.levels.WARN)
+    return
+  end
+
+  local entry = cache[path]
+  if not entry then
+    fetch(path, root)
+    vim.notify("正在获取最近一次 commit, 请稍后重试", vim.log.levels.INFO)
+    return
+  end
+  if not entry.hash or entry.hash == "" then
+    vim.notify("该文件/目录暂无 commit 记录", vim.log.levels.WARN)
+    return
+  end
+
+  vim.cmd("DiffviewOpen " .. entry.hash .. "^! -- " .. vim.fn.fnameescape(path))
+end
+
 return {
   {
     "nvim-neo-tree/neo-tree.nvim",
@@ -241,6 +268,13 @@ return {
     opts.filesystem = opts.filesystem or {}
     opts.filesystem.components = opts.filesystem.components or {}
     opts.filesystem.components.last_commit = last_commit
+
+    opts.filesystem.commands = opts.filesystem.commands or {}
+    opts.filesystem.commands.gitlog_show_commit = show_commit_details
+
+    opts.filesystem.window = opts.filesystem.window or {}
+    opts.filesystem.window.mappings = opts.filesystem.window.mappings or {}
+    opts.filesystem.window.mappings["L"] = "gitlog_show_commit"
 
     opts.filesystem.renderers = opts.filesystem.renderers or {}
     opts.filesystem.renderers.directory = build_dir_renderer()
