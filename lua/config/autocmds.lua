@@ -9,45 +9,45 @@
 --   进入 insert / 切回 nvim       -> 切系统 ABC 英文 (并记录原 IM 以便下次还原)
 -- 注意: tmux 下需要 `set -g focus-events on` 才能让 FocusGained/FocusLost 生效
 -- ============================================================
-if vim.fn.has("mac") == 1 and vim.fn.executable("macism") == 1 then
-  local IM_EN = "com.apple.keylayout.ABC"
-  local last_im = "com.sogou.inputmethod.sogou.pinyin"
-
-  local function set_im(id)
-    vim.fn.jobstart({ "macism", id }, { detach = true })
-  end
-
-  -- 切英文前先读当前 IM, 若不是 ABC 则记录, 用于离开 nvim 时还原
-  local function to_english()
-    vim.fn.jobstart({ "macism" }, {
-      stdout_buffered = true,
-      on_stdout = function(_, data)
-        local cur = data and data[1] or ""
-        if cur ~= "" and cur ~= IM_EN then
-          last_im = cur
-        end
-        set_im(IM_EN)
-      end,
-    })
-  end
-
-  local function to_last()
-    set_im(last_im)
-  end
-
-  -- 触发切英文: 离开 insert/命令行, 或聚焦 nvim
-  vim.api.nvim_create_autocmd({ "InsertLeave", "CmdlineLeave", "FocusGained" }, {
-    callback = function()
-      -- 兜底: 若仍在 insert 模式 (例如 :startinsert 后 FocusGained), 不要切走
-      if vim.fn.mode():sub(1, 1) ~= "i" then
-        to_english()
-      end
-    end,
-  })
-
-  -- 触发还原: 进入 insert, 或离开 nvim
-  vim.api.nvim_create_autocmd({ "InsertEnter", "FocusLost" }, { callback = to_last })
-end
+-- if vim.fn.has("mac") == 1 and vim.fn.executable("macism") == 1 then
+--   local IM_EN = "com.apple.keylayout.ABC"
+--   local last_im = "com.sogou.inputmethod.sogou.pinyin"
+--
+--   local function set_im(id)
+--     vim.fn.jobstart({ "macism", id }, { detach = true })
+--   end
+--
+--   -- 切英文前先读当前 IM, 若不是 ABC 则记录, 用于离开 nvim 时还原
+--   local function to_english()
+--     vim.fn.jobstart({ "macism" }, {
+--       stdout_buffered = true,
+--       on_stdout = function(_, data)
+--         local cur = data and data[1] or ""
+--         if cur ~= "" and cur ~= IM_EN then
+--           last_im = cur
+--         end
+--         set_im(IM_EN)
+--       end,
+--     })
+--   end
+--
+--   local function to_last()
+--     set_im(last_im)
+--   end
+--
+--   -- 触发切英文: 离开 insert/命令行, 或聚焦 nvim
+--   vim.api.nvim_create_autocmd({ "InsertLeave", "CmdlineLeave", "FocusGained" }, {
+--     callback = function()
+--       -- 兜底: 若仍在 insert 模式 (例如 :startinsert 后 FocusGained), 不要切走
+--       if vim.fn.mode():sub(1, 1) ~= "i" then
+--         to_english()
+--       end
+--     end,
+--   })
+--
+--   -- 触发还原: 进入 insert, 或离开 nvim
+--   -- vim.api.nvim_create_autocmd({ "InsertEnter", "FocusLost" }, { callback = to_last })
+-- end
 
 -- ============================================================
 -- 文件外部修改自动重载
