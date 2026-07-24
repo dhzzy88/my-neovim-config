@@ -3,6 +3,10 @@
 -- Add any additional keymaps here
 --
 local map = vim.keymap.set
+
+-- 单词高亮: <leader>hh 高亮光标单词, <Esc> 清除全部高亮
+require("config.highlight_words").setup()
+
 map("n", "<leader>gH", "<cmd>DiffviewFileHistory<cr>", { desc = "git history of branch" })
 map("n", "<leader>gf", "<cmd>DiffviewFileHistory %<cr>", { desc = "git history of file" })
 
