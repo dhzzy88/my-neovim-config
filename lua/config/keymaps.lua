@@ -7,6 +7,16 @@ local map = vim.keymap.set
 -- 单词高亮: <leader>hh 高亮光标单词, <Esc> 清除全部高亮
 require("config.highlight_words").setup()
 
+-- 查看当前文件在哪些地方被使用: 以文件名(不含路径)为关键字全局搜索
+map("n", "<leader>fF", function()
+  local filename = vim.fn.expand("%:t")
+  if filename == nil or filename == "" then
+    vim.notify("当前 buffer 没有文件名", vim.log.levels.WARN)
+    return
+  end
+  require("fzf-lua").grep({ search = filename, no_esc = true })
+end, { desc = "find where current file is used (grep by filename)" })
+
 map("n", "<leader>gH", "<cmd>DiffviewFileHistory<cr>", { desc = "git history of branch" })
 map("n", "<leader>gf", "<cmd>DiffviewFileHistory %<cr>", { desc = "git history of file" })
 

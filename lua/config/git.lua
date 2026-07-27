@@ -22,6 +22,16 @@ local git_commit_amend_floating = git_floating("GIT_EDITOR=nvim git commit --ame
 local git_push_floating = git_floating("git push")
 local git_push_force_floating = git_floating("git push -f")
 
+-- 关闭 commit message 编辑时的自动换行:
+-- Neovim 内置 gitcommit ftplugin 默认 textwidth=72, 输入超宽会自动插入换行符
+vim.api.nvim_create_autocmd("FileType", {
+  pattern = "gitcommit",
+  callback = function()
+    vim.opt_local.textwidth = 0
+    vim.opt_local.formatoptions:remove("t")
+  end,
+})
+
 require("diffview").setup({
   enhanced_diff_hl = true,
   -- 弥补 diffview 只监听 .git/index 不监听 HEAD 的缺陷:
