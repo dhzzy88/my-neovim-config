@@ -205,9 +205,7 @@ function M.find(opts)
 
   pickers
     .new({}, {
-      prompt_title = ("Agent Sessions  [%s]   <name> ;; <content>   <C-x> 删除"):format(
-        current_project
-      ),
+      prompt_title = ("Agent Sessions  <name> ;; <content>   <C-x> 删除  <C-o> 打开md"),
       prompt_prefix = "> ",
       default_text = opts.default_text,
       finder = build_finder(),
@@ -289,10 +287,81 @@ function M.find(opts)
         map("i", "<C-x>", delete_selected)
         map("n", "<C-x>", delete_selected)
 
+        -- <C-o>: 将选中 session 渲染内容写入 /tmp/<session>.md, 并在新 tab 打开
+        local function open_as_markdown(prompt_bufnr)
+          local sel = action_state.get_selected_entry()
+          if not (sel and sel.value) then
+            return
+          end
+          local e = sel.value
+          local session = e.file:gsub("%.jsonl$", "")
+          local lines = render_util.render_session(e.path)
+          local fpath = "/tmp/" .. session .. ".md"
+          local fd, err = io.open(fpath, "w")
+          if not fd then
+            vim.notify("无法写入 " .. fpath .. ": " .. tostring(err), vim.log.levels.ERROR)
+            return
+          end
+          fd:write(table.concat(lines, "\n"))
+          fd:close()
+          actions.close(prompt_bufnr)
+          vim.cmd("tabnew " .. vim.fn.fnameescape(fpath))
+
+          -- 折叠所有 🤖 ASSISTANT 块, 只展开 👤 USER 提问
+          -- 注意: 不改 foldlevel(保持全局默认 99), 否则会泄漏到同窗口后续打开的文件,
+          -- 导致其它代码的 treesitter 折叠被全部闭合; 这里改为逐个 foldclose
+          local buf = vim.api.nvim_get_current_buf()
+          local win = vim.api.nvim_get_current_win()
+          local levels = {}
+          local heads = {}
+          local in_assistant = false
+          for i, l in ipairs(lines) do
+            if vim.startswith(l, "─") then
+              in_assistant = false
+              levels[i] = "0"
+            elseif vim.startswith(l, "🤖") then
+              in_assistant = true
+              levels[i] = ">1"
+              heads[#heads + 1] = i
+            elseif vim.startswith(l, "👤") then
+              in_assistant = false
+              levels[i] = "0"
+            else
+              levels[i] = in_assistant and "1" or "0"
+            end
+          end
+          vim.b[buf].agent_fold_levels = levels
+          vim.schedule(function()
+            if not vim.api.nvim_win_is_valid(win) then
+              return
+            end
+            vim.api.nvim_win_call(win, function()
+              vim.wo.foldmethod = "expr"
+              vim.wo.foldexpr = "v:lua.require'config.agent_session'.foldexpr(v:lnum)"
+              vim.wo.foldenable = true
+              for _, h in ipairs(heads) do
+                pcall(vim.cmd, h .. "foldclose")
+              end
+              vim.cmd("normal! gg")
+            end)
+          end)
+        end
+        map("i", "<C-o>", open_as_markdown)
+        map("n", "<C-o>", open_as_markdown)
+
         return true
       end,
     })
     :find()
+end
+
+---foldexpr: 供 <C-o> 打开的渲染 md 使用, 折叠 ASSISTANT 块
+function M.foldexpr(lnum)
+  local levels = vim.b.agent_fold_levels
+  if not levels then
+    return "0"
+  end
+  return levels[lnum] or "0"
 end
 
 -- 便于外部测试 / 调用的转发
