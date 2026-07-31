@@ -1,7 +1,10 @@
 return {
   {
     -- "yintao1995/codetour.nvim",
-    dir = vim.fn.expand("~/projects/codetour.nvim"),
+    dir = vim.fn.isdirectory(vim.fn.expand("~/projects/codetour.nvim")) == 1
+        and vim.fn.expand("~/projects/codetour.nvim")
+        or nil,
+    url = "https://github.com/yintao1995/codetour.nvim",
     -- name = "codetour.nvim",
 
     cmd = {
