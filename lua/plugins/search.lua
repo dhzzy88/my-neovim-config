@@ -10,6 +10,8 @@ return {
     winopts = {
       width = 0.9,
       preview = {
+        layout = "flex",
+        flip_columns = 150, -- 窗口宽度 >150列时用左右布局，≤150 列时自动切为上下布局。
         border = "noborder",
         vertical = "up:50%",
         horizontal = "right:50%",
