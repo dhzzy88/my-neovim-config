@@ -7,6 +7,9 @@ return {
           sign = false,
           virtual_text = true,
         },
+        symbol_in_winbar = {
+          enable = false,
+        },
       })
     end,
     dependencies = {
