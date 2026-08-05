@@ -66,6 +66,11 @@ map("n", "<leader>fT", function()
 end, { desc = "search all ctags (prefilled with cword)" })
 
 
+-- 从当前行提取 /restconf/data/ 后面的 YANG path，在 annotSpec.txt 中查找映射信息
+map("n", "<leader>fy", function()
+  require("config.sonic_yang_finder").find_yang_info()
+end, { desc = "[SONiC] find YANG annot spec from restconf path" })
+
 map("n", "<leader>gd", "<cmd>Lspsaga peek_definition<cr>", { desc = "lspsaga: go to peek_definition" })
 -- <leader>sr  插件grug-far.nvim, 查找并替换
 map("n", "<leader>fB", "<cmd>Telescope bookmarks<cr>", { desc = "open bookmarks list" })
