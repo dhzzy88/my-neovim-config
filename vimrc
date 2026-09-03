@@ -36,3 +36,6 @@ nnoremap yw yiw
 nnoremap dw diw
 nnoremap yl ^v$y
 
+if &diff
+    colorscheme evening 
+endif

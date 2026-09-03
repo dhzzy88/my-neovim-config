@@ -3,3 +3,7 @@
 # --glob=*.c
 --glob=!tags
 --glob=!cscope.*
+--glob=!*.html
+--glob=!*.js
+--glob=!lib/librte_eal/windows/**
+--glob=!lib/librte_eal/freebsd/**

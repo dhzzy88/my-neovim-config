@@ -45,4 +45,3 @@ local map = LazyVim.safe_keymap_set
 map("n", "<leader>m", function()
   require("bookmarks").add_bookmarks(true)
 end, { desc = "add bookmarks" })
-map("n", "<leader>fB", "<cmd>Telescope bookmarks<cr>", { desc = "open bookmarks list" })

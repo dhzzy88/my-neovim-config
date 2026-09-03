@@ -29,7 +29,7 @@ return {
     dependencies = { { "nvim-tree/nvim-web-devicons" } },
   },
   {
-    "echasnovski/mini.cursorword",
+    "nvim-mini/mini.cursorword",
     version = "*",
   },
 }
